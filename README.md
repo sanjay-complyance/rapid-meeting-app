@@ -19,6 +19,7 @@ This repo is scaffolded for the full upload -> process -> review -> finalize flo
 ## Planning docs
 
 - [Fathom-first V2 plan](/Users/sanjaykumarv/Documents/RAPID assistant/docs/fathom-v2-plan.md)
+- [Local Cloudflare Tunnel setup](/Users/sanjaykumarv/Documents/RAPID assistant/docs/local-cloudflare-tunnel.md)
 - [Railway deployment guide](/Users/sanjaykumarv/Documents/RAPID assistant/docs/railway-deploy.md)
 
 ## Dev setup
@@ -54,10 +55,26 @@ psql "$DATABASE_URL" -f backend/migrations/002_fathom.sql
 ./scripts/dev.sh
 ```
 
+6. If you want Fathom webhooks without paying for hosting, expose the backend with
+   a free Cloudflare Quick Tunnel:
+
+```bash
+./scripts/tunnel.sh
+```
+
+Then use:
+
+```text
+https://<public-url>/v1/integrations/fathom/webhook
+```
+
+See [Local Cloudflare Tunnel setup](/Users/sanjaykumarv/Documents/RAPID assistant/docs/local-cloudflare-tunnel.md)
+for the full no-cost flow.
+
 ## Important env vars
 
 - `DATABASE_URL`: add your Neon URL here in the root `.env`
-- `ENABLE_AUDIO_UPLOADS`: set this to `false` in Railway unless you also add shared object storage
+- `ENABLE_AUDIO_UPLOADS`: set this to `false` if you want a Fathom-only flow, or in Railway unless you also add shared object storage
 - `PUBLIC_ENABLE_AUDIO_UPLOADS`: hide the upload UI when the backend upload path is disabled
 - `PYANNOTE_AUTH_TOKEN`: optional, enables true multi-speaker diarization when the worker runs on Python 3.11+
 - `GEMINI_API_KEY`: optional, enables Gemini-based RAPID report generation
@@ -70,4 +87,11 @@ psql "$DATABASE_URL" -f backend/migrations/002_fathom.sql
 
 If `PYANNOTE_AUTH_TOKEN` is not set, or if the worker is still running on Python 3.10, the worker still runs and labels the meeting as single-speaker instead of fabricating diarization.
 
-For Railway deployment, use [docs/railway-deploy.md](/Users/sanjaykumarv/Documents/RAPID assistant/docs/railway-deploy.md). The current Railway path is intended for `Fathom-first` production use; direct uploads should stay disabled there until shared object storage is added.
+Recommended low-cost path: run the stack locally and use
+[Local Cloudflare Tunnel setup](/Users/sanjaykumarv/Documents/RAPID assistant/docs/local-cloudflare-tunnel.md)
+for Fathom webhooks.
+
+If you do come back to hosted deployment later, use
+[docs/railway-deploy.md](/Users/sanjaykumarv/Documents/RAPID assistant/docs/railway-deploy.md).
+The Railway path is intended for `Fathom-first` use; direct uploads should stay
+disabled there until shared object storage is added.

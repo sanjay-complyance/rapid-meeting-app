@@ -17,3 +17,7 @@ frontend:
 .PHONY: dev
 dev:
 	./scripts/dev.sh
+
+.PHONY: tunnel
+tunnel:
+	./scripts/tunnel.sh
