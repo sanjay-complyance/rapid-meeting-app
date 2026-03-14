@@ -1,12 +1,6 @@
 [build]
 builder = "DOCKERFILE"
 dockerfilePath = "Dockerfile"
-watchPatterns = [
-  "worker/**",
-  "docs/**",
-  "README.md",
-  ".env.example",
-]
 
 [deploy]
 restartPolicyType = "ON_FAILURE"

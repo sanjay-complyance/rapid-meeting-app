@@ -16,6 +16,6 @@ RUN pip install --no-cache-dir uv
 COPY pyproject.toml README.md ./
 COPY src ./src
 
-RUN uv sync --extra ai
+RUN uv sync
 
 CMD ["uv", "run", "python", "-m", "app.main"]

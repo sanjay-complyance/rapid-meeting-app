@@ -1,12 +1,6 @@
 [build]
 builder = "DOCKERFILE"
 dockerfilePath = "Dockerfile"
-watchPatterns = [
-  "frontend/**",
-  "docs/**",
-  "README.md",
-  ".env.example",
-]
 
 [deploy]
 healthcheckPath = "/"
