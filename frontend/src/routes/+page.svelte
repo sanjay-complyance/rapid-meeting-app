@@ -45,13 +45,18 @@
 	<aside class="card stack">
 		<h2>Import from Fathom</h2>
 		<p class="muted">
-			For Fathom-recorded meetings, import by recording ID and skip the local transcription pipeline.
+			For Fathom-recorded meetings, paste either the recording ID or the Fathom share link and skip the
+			local transcription pipeline.
 		</p>
 
 		<form method="POST" action="?/fathom" class="stack">
 			<label class="field">
-				<span>Fathom recording ID</span>
-				<input name="recording_id" placeholder="123456789" required />
+				<span>Fathom recording ID or share link</span>
+				<input
+					name="recording_id"
+					placeholder="123456789 or https://fathom.video/share/..."
+					required
+				/>
 			</label>
 
 			<button class="secondary" type="submit">Import from Fathom</button>

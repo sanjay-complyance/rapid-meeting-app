@@ -75,3 +75,24 @@ func TestVerifyWebhookAcceptsValidSignature(t *testing.T) {
 		t.Fatalf("VerifyWebhook returned error for valid signature: %v", err)
 	}
 }
+
+func TestMeetingMatchesReference(t *testing.T) {
+	meeting := map[string]any{
+		"id":        42,
+		"url":       "https://fathom.video/watch/42?utm_source=test",
+		"share_url": "https://fathom.video/share/cGhjZ77aGTSCWV1HTL6J82otc26YxRG7",
+	}
+
+	if !meetingMatchesReference(meeting, "42") {
+		t.Fatalf("expected recording id match")
+	}
+	if !meetingMatchesReference(meeting, "https://fathom.video/share/cGhjZ77aGTSCWV1HTL6J82otc26YxRG7") {
+		t.Fatalf("expected share link match")
+	}
+	if !meetingMatchesReference(meeting, "https://fathom.video/watch/42") {
+		t.Fatalf("expected watch link match after normalization")
+	}
+	if meetingMatchesReference(meeting, "https://fathom.video/share/other") {
+		t.Fatalf("expected different share link not to match")
+	}
+}

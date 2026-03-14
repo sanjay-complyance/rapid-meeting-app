@@ -103,6 +103,7 @@ type CreateMeetingResponse struct {
 
 type ImportFathomRequest struct {
 	RecordingID string `json:"recording_id"`
+	ShareURL    string `json:"share_url"`
 }
 
 type FathomSegmentInput struct {

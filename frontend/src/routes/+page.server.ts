@@ -18,15 +18,19 @@ export const actions: Actions = {
 	},
 	fathom: async ({ request }) => {
 		const formData = await request.formData();
-		const recordingId = String(formData.get('recording_id') ?? '').trim();
-		if (!recordingId) {
+		const input = String(formData.get('recording_id') ?? '').trim();
+		if (!input) {
 			throw redirect(303, '/');
 		}
+		const payload =
+			input.startsWith('http://') || input.startsWith('https://')
+				? { share_url: input }
+				: { recording_id: input };
 
 		const response = await apiFetch('/v1/integrations/fathom/import', {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ recording_id: recordingId })
+			body: JSON.stringify(payload)
 		});
 		const created = (await response.json()) as { meeting_id: string };
 

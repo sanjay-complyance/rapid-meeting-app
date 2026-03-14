@@ -29,7 +29,7 @@ type Client struct {
 func NewClient(apiKey string) *Client {
 	return &Client{
 		apiKey:     apiKey,
-		baseURL:    "https://api.fathom.video/v1",
+		baseURL:    "https://api.fathom.ai/external/v1",
 		httpClient: &http.Client{Timeout: 30 * time.Second},
 	}
 }
@@ -57,6 +57,46 @@ func (c *Client) FetchRecording(ctx context.Context, recordingID string) (models
 	}
 
 	meetingPayload, _ := c.findMeeting(ctx, recordingID)
+	return mergeImportInput(recordingID, transcriptPayload, summaryPayload, meetingPayload)
+}
+
+func (c *Client) FetchRecordingByReference(ctx context.Context, recordingID, shareURL string) (models.FathomImportInput, error) {
+	recordingID = strings.TrimSpace(recordingID)
+	shareURL = strings.TrimSpace(shareURL)
+	if recordingID == "" && shareURL == "" {
+		return models.FathomImportInput{}, fmt.Errorf("recording_id or share_url is required")
+	}
+	if !c.Available() {
+		return models.FathomImportInput{}, fmt.Errorf("FATHOM_API_KEY is not configured")
+	}
+
+	var meetingPayload map[string]any
+	var err error
+	if shareURL != "" {
+		meetingPayload, err = c.findMeetingByReference(ctx, shareURL)
+		if err != nil {
+			return models.FathomImportInput{}, err
+		}
+		if recordingID == "" {
+			recordingID = extractRecordingID(meetingPayload)
+		}
+	}
+
+	if recordingID == "" {
+		return models.FathomImportInput{}, fmt.Errorf("unable to resolve recording_id from provided Fathom link")
+	}
+
+	transcriptPayload, err := c.getJSON(ctx, "/recordings/"+url.PathEscape(recordingID)+"/transcript")
+	if err != nil {
+		return models.FathomImportInput{}, err
+	}
+	summaryPayload, err := c.getJSON(ctx, "/recordings/"+url.PathEscape(recordingID)+"/summary")
+	if err != nil {
+		return models.FathomImportInput{}, err
+	}
+	if len(meetingPayload) == 0 {
+		meetingPayload, _ = c.findMeeting(ctx, recordingID)
+	}
 	return mergeImportInput(recordingID, transcriptPayload, summaryPayload, meetingPayload)
 }
 
@@ -258,6 +298,35 @@ func (c *Client) findMeeting(ctx context.Context, recordingID string) (map[strin
 	return nil, fmt.Errorf("Fathom recording %s not found in meeting list", recordingID)
 }
 
+func (c *Client) findMeetingByReference(ctx context.Context, reference string) (map[string]any, error) {
+	reference = normalizeMeetingReference(reference)
+	if reference == "" {
+		return nil, fmt.Errorf("meeting reference is required")
+	}
+
+	cursor := ""
+	for attempt := 0; attempt < 10; attempt++ {
+		path := "/meetings?include_action_items=true&include_summary=true&limit=100"
+		if cursor != "" {
+			path += "&cursor=" + url.QueryEscape(cursor)
+		}
+		payload, err := c.getJSON(ctx, path)
+		if err != nil {
+			return nil, err
+		}
+		for _, meeting := range extractMeetingItems(payload) {
+			if meetingMatchesReference(meeting, reference) {
+				return meeting, nil
+			}
+		}
+		cursor = extractNextCursor(payload)
+		if cursor == "" {
+			break
+		}
+	}
+	return nil, fmt.Errorf("Fathom meeting %s not found in meeting list", reference)
+}
+
 func transcriptSegmentsFromPayload(payload map[string]any) ([]models.FathomSegmentInput, error) {
 	if len(payload) == 0 {
 		return nil, fmt.Errorf("empty transcript payload")
@@ -337,10 +406,13 @@ func buildDraftPreviewJSON(source string, segmentCount, speakerCount int) string
 }
 
 func extractMeetingItems(payload map[string]any) []map[string]any {
-	return arrayOfMaps(firstValue(payload, "data", "meetings"))
+	return arrayOfMaps(firstValue(payload, "items", "data", "meetings"))
 }
 
 func extractTranscriptItems(payload map[string]any) []map[string]any {
+	if items := arrayOfMaps(firstValue(payload, "transcript")); len(items) > 0 {
+		return items
+	}
 	if items := arrayOfMaps(firstValue(payload, "data", "transcript")); len(items) > 0 {
 		return items
 	}
@@ -363,16 +435,17 @@ func extractActionItems(payload map[string]any) []any {
 
 func extractSummaryMarkdown(payload map[string]any) string {
 	if nested, ok := payload["default_summary"].(map[string]any); ok {
-		if value := firstNonEmpty(extractString(nested, "markdown"), extractString(nested, "content")); value != "" {
+		if value := firstNonEmpty(extractString(nested, "markdown_formatted"), extractString(nested, "markdown"), extractString(nested, "content")); value != "" {
 			return value
 		}
 	}
 	if nested, ok := payload["summary"].(map[string]any); ok {
-		if value := firstNonEmpty(extractString(nested, "markdown"), extractString(nested, "content")); value != "" {
+		if value := firstNonEmpty(extractString(nested, "markdown_formatted"), extractString(nested, "markdown"), extractString(nested, "content")); value != "" {
 			return value
 		}
 	}
 	return firstNonEmpty(
+		extractString(payload, "markdown_formatted"),
 		extractString(payload, "markdown"),
 		extractString(payload, "content"),
 		extractString(payload, "summary_markdown"),
@@ -565,4 +638,37 @@ func JSONBytes(payload map[string]any) []byte {
 	}
 	encoded, _ := json.Marshal(payload)
 	return bytes.TrimSpace(encoded)
+}
+
+func meetingMatchesReference(meeting map[string]any, reference string) bool {
+	reference = normalizeMeetingReference(reference)
+	if reference == "" {
+		return false
+	}
+	candidates := []string{
+		extractRecordingID(meeting),
+		extractString(meeting, "url"),
+		extractString(meeting, "share_url"),
+	}
+	for _, candidate := range candidates {
+		if normalizeMeetingReference(candidate) == reference {
+			return true
+		}
+	}
+	return false
+}
+
+func normalizeMeetingReference(value string) string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return ""
+	}
+	parsed, err := url.Parse(value)
+	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
+		return strings.Trim(strings.TrimSpace(value), "/")
+	}
+	parsed.Fragment = ""
+	parsed.RawQuery = ""
+	parsed.Path = strings.TrimRight(parsed.Path, "/")
+	return strings.ToLower(parsed.Host) + parsed.Path
 }

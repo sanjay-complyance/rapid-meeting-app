@@ -135,7 +135,7 @@ func (s *Server) handleFathomImport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	input, err := s.fathom.FetchRecording(r.Context(), request.RecordingID)
+	input, err := s.fathom.FetchRecordingByReference(r.Context(), request.RecordingID, request.ShareURL)
 	if err != nil {
 		writeError(w, http.StatusBadGateway, "fetch Fathom recording", err)
 		return
