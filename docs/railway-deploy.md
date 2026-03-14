@@ -6,6 +6,9 @@ This monorepo is set up to run on Railway as three separate services:
 - `rapid-worker` from `/worker`
 - `rapid-frontend` from `/frontend`
 
+Each service now includes its own `railway.toml` and `Dockerfile` in that service
+directory.
+
 ## Important Deployment Caveat
 
 This deployment is intended for the current `Fathom-first` production path.
