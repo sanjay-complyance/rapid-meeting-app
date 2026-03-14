@@ -1,0 +1,24 @@
+[project]
+name = "rapid-worker"
+version = "0.1.0"
+description = "Background worker for RAPID assistant audio processing and report generation"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "faster-whisper>=1.1.1",
+  "onnxruntime<1.20",
+  "pytest>=8.3.5",
+  "psycopg[binary]>=3.2.6",
+  "requests>=2.32.3",
+]
+
+[project.optional-dependencies]
+ai = [
+  "pyannote.audio>=3.3.2; python_version >= '3.11'",
+]
+
+[tool.uv]
+package = true
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
